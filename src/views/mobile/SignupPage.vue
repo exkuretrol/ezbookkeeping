@@ -4,7 +4,7 @@
             <f7-nav-left :back-link="tt('Back')"></f7-nav-left>
             <f7-nav-title :title="tt('Sign Up')"></f7-nav-title>
             <f7-nav-right>
-                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': inputIsEmpty || submitting }" @click="submit"></f7-link>
+                <f7-link icon-f7="checkmark_alt" :class="{ 'disabled': inputIsEmpty || submitting }" :aria-label="tt('Sign Up')" @click="submit"></f7-link>
             </f7-nav-right>
         </f7-navbar>
 
@@ -129,6 +129,48 @@
         </f7-list>
 
         <f7-list strong inset dividers class="margin-vertical">
+            <f7-list-item
+                link="#"
+                class="list-item-with-header-and-title list-item-no-item-after"
+                :header="tt('Expense Amount Color')"
+                :title="findDisplayNameByType(allExpenseAmountColorTypes, user.expenseAmountColor)"
+                @click="showExpenseAmountColorPopup = true"
+            >
+                <list-item-selection-popup value-type="item"
+                                           key-field="type" value-field="type"
+                                           title-field="displayName"
+                                           :title="tt('Expense Amount Color')"
+                                           :enable-filter="true"
+                                           :filter-placeholder="tt('Color')"
+                                           :filter-no-items-text="tt('No results')"
+                                           :items="allExpenseAmountColorTypes"
+                                           v-model:show="showExpenseAmountColorPopup"
+                                           v-model="user.expenseAmountColor">
+                </list-item-selection-popup>
+            </f7-list-item>
+
+            <f7-list-item
+                link="#"
+                class="list-item-with-header-and-title list-item-no-item-after"
+                :header="tt('Income Amount Color')"
+                :title="findDisplayNameByType(allIncomeAmountColorTypes, user.incomeAmountColor)"
+                @click="showIncomeAmountColorPopup = true"
+            >
+                <list-item-selection-popup value-type="item"
+                                           key-field="type" value-field="type"
+                                           title-field="displayName"
+                                           :title="tt('Income Amount Color')"
+                                           :enable-filter="true"
+                                           :filter-placeholder="tt('Color')"
+                                           :filter-no-items-text="tt('No results')"
+                                           :items="allIncomeAmountColorTypes"
+                                           v-model:show="showIncomeAmountColorPopup"
+                                           v-model="user.incomeAmountColor">
+                </list-item-selection-popup>
+            </f7-list-item>
+        </f7-list>
+
+        <f7-list strong inset dividers class="margin-vertical">
             <f7-list-item link="#" @click="showPresetCategories = true">
                 <template #after-title>
                     {{ tt('Use preset transaction categories') }}
@@ -144,11 +186,11 @@
             <f7-page>
                 <f7-navbar>
                     <f7-nav-left>
-                        <f7-link popup-close icon-f7="xmark"></f7-link>
+                        <f7-link popup-close icon-f7="xmark" :aria-label="tt('Close')"></f7-link>
                     </f7-nav-left>
                     <f7-nav-title :title="tt('Preset Categories')"></f7-nav-title>
                     <f7-nav-right class="navbar-compact-icons">
-                        <f7-link icon-f7="ellipsis" @click="showPresetCategoriesMoreActionSheet = true"></f7-link>
+                        <f7-link icon-f7="ellipsis" :aria-label="tt('More')" @click="showPresetCategoriesMoreActionSheet = true"></f7-link>
                         <f7-link close @click="usePresetCategories = true; showPresetCategories = false" v-if="!usePresetCategories">{{ tt('Enable') }}</f7-link>
                         <f7-link close @click="usePresetCategories = false; showPresetCategories = false" v-if="usePresetCategories">{{ tt('Disable') }}</f7-link>
                     </f7-nav-right>
@@ -230,6 +272,8 @@ const { showAlert, showToast } = useI18nUIComponents();
 const {
     user,
     submitting,
+    allExpenseAmountColorTypes,
+    allIncomeAmountColorTypes,
     languageTitle,
     currentLocale,
     currentLanguageName,
@@ -247,6 +291,8 @@ const usePresetCategories = ref<boolean>(false);
 const showLanguagePopup = ref<boolean>(false);
 const showDefaultCurrencyPopup = ref<boolean>(false);
 const showFirstDayOfWeekPopup = ref<boolean>(false);
+const showExpenseAmountColorPopup = ref<boolean>(false);
+const showIncomeAmountColorPopup = ref<boolean>(false);
 const showPresetCategories = ref<boolean>(false);
 const showPresetCategoriesMoreActionSheet = ref<boolean>(false);
 const showPresetCategoriesChangeLocaleSheet = ref<boolean>(false);

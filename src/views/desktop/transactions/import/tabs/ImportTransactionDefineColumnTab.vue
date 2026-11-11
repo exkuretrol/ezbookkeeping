@@ -14,6 +14,7 @@
             :no-data-text="tt('No data to import')"
             v-model:items-per-page="countPerPage"
             v-model:page="currentPage"
+            @click="focusTableScrollContainer"
         >
             <template #headers="{ columns }">
                 <tr>
@@ -64,7 +65,7 @@
                                         <td>{{ typeName }}</td>
                                         <td>
                                             <v-btn-toggle class="toggle-buttons" density="compact" variant="outlined"
-                                                          color="default" mandatory="force" divided
+                                                          color="default" mandatory="force"
                                                           v-model="parsedFileDataColumnMapping.transactionTypeMapping[typeName]">
                                                 <v-btn :value="undefined">{{ tt('None') }}</v-btn>
                                                 <v-btn :value="TransactionType.ModifyBalance">{{ tt('Modify Balance') }}</v-btn>
@@ -244,7 +245,7 @@ import { ImportTransactionColumnType, ImportTransactionDataMapping } from '@/cor
 import { KnownFileType } from '@/core/file.ts';
 
 import { DEFAULT_PAGE_COUNTS } from '@/consts/page.ts';
-import { KNOWN_COLUMN_NAME_MAPPING, KNOWN_TRANSACTION_TYPE_NAME_MAPPING } from '@/consts/import_transaction.ts';
+import { KNOWN_COLUMN_NAME_MAPPING, KNOWN_TRANSACTION_TYPE_NAME_MAPPING } from '@/consts/import_mapping.ts';
 
 import {
     isNumber,
@@ -256,6 +257,7 @@ import {
     openTextFileContent,
     startDownloadFile
 } from '@/lib/ui/common.ts';
+import { focusTableScrollContainer } from '@/lib/ui/desktop.ts';
 import logger from '@/lib/logger.ts';
 
 import {
@@ -289,6 +291,7 @@ interface ImportTransactionDefineColumnMenu {
 
 const props = defineProps<{
     parsedFileData?: string[][];
+    parsedFileColumnSeparator?: string;
     disabled?: boolean;
 }>();
 
@@ -306,7 +309,7 @@ const snackbar = useTemplateRef<SnackBarType>('snackbar');
 
 const currentPage = ref<number>(1);
 const countPerPage = ref<number>(10);
-const parsedFileDataColumnMapping = ref<ImportTransactionDataMapping>(ImportTransactionDataMapping.createEmpty());
+const parsedFileDataColumnMapping = ref<ImportTransactionDataMapping>(ImportTransactionDataMapping.createEmpty(props.parsedFileColumnSeparator));
 
 const longDateFormatOrder = computed<DateFormatOrder>(() => getLongDateFormatOrder());
 const shortDateFormatOrder = computed<DateFormatOrder>(() => getShortDateFormatOrder());
@@ -627,21 +630,30 @@ function generateResult(): ImportTransactionDefineColumnResult | undefined {
 }
 
 function reset(): void {
-    parsedFileDataColumnMapping.value.reset();
+    parsedFileDataColumnMapping.value.reset(props.parsedFileColumnSeparator);
     currentPage.value = 1;
     countPerPage.value = 10;
+}
+
+function loadColumnMapping(data: string): boolean {
+    const columnMapping = ImportTransactionDataMapping.parseFromJson(data);
+
+    if (columnMapping) {
+        parsedFileDataColumnMapping.value = columnMapping;
+        return true;
+    } else {
+        logger.error('Failed to parse data mapping file');
+        return false;
+    }
 }
 
 function loadColumnMappingFile(): void {
     openTextFileContent({
         allowedExtensions: KnownFileType.JSON.contentType
     }).then(content => {
-        const result = ImportTransactionDataMapping.parseFromJson(content);
+        const result = loadColumnMapping(content);
 
-        if (result) {
-            parsedFileDataColumnMapping.value = result;
-        } else {
-            logger.error('Failed to parse data mapping file');
+        if (!result) {
             snackbar.value?.showError('Data mapping file is invalid');
         }
     }).catch(error => {
@@ -666,6 +678,7 @@ defineExpose({
     menus,
     generateResult,
     reset,
+    loadColumnMapping,
     loadColumnMappingFile,
     saveColumnMappingFile
 });

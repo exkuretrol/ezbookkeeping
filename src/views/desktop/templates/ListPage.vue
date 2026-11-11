@@ -10,8 +10,8 @@
                         <v-btn class="ms-3" color="primary" variant="tonal"
                                :disabled="loading || updating" @click="saveSortResult"
                                v-if="displayOrderModified">{{ tt('Save Display Order') }}</v-btn>
-                        <v-btn density="compact" color="default" variant="text"
-                               class="ms-2" :icon="true" :disabled="loading || updating"
+                        <v-btn density="compact" color="default" variant="text" class="ms-2"
+                               :aria-label="tt('Refresh')" :icon="true" :disabled="loading || updating"
                                :loading="loading" @click="reload">
                             <template #loader>
                                 <v-progress-circular indeterminate size="20"/>
@@ -21,7 +21,7 @@
                         </v-btn>
                         <v-spacer/>
                         <v-btn density="comfortable" color="default" variant="text" class="ms-2"
-                               :disabled="loading || updating" :icon="true">
+                               :aria-label="tt('More')" :disabled="loading || updating" :icon="true">
                             <v-icon :icon="mdiDotsVertical" />
                             <v-menu activator="parent">
                                 <v-list>
@@ -80,7 +80,8 @@
                                     <div class="d-flex align-center">
                                         <div class="d-flex align-center">
                                             <v-badge class="right-bottom-icon" color="secondary"
-                                                     location="bottom right" offset-x="8" :icon="mdiEyeOffOutline"
+                                                     location="bottom right" offset-x="8"
+                                                     :aria-label="tt('Hidden')" :icon="mdiEyeOffOutline"
                                                      v-if="element.hidden">
                                                 <v-icon size="20" start :icon="templateType === TemplateType.Schedule.type ? mdiClockTimeNineOutline : mdiTextBoxOutline"/>
                                             </v-badge>
@@ -127,7 +128,7 @@
 
                                         <span class="ms-2">
                                             <v-icon :class="!loading && !updating && availableTemplateCount > 1 ? 'drag-handle' : 'disabled'"
-                                                    :icon="mdiDrag"/>
+                                                    :aria-label="tt('Drag to Reorder')" :icon="mdiDrag"/>
                                             <v-tooltip activator="parent" v-if="!loading && !updating && availableTemplateCount > 1 && hoveredTemplateId === element.id">{{ tt('Drag to Reorder') }}</v-tooltip>
                                         </span>
                                     </div>

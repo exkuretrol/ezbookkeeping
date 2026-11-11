@@ -8,16 +8,7 @@
         </router-link>
         <v-row no-gutters class="auth-wrapper">
             <v-col cols="12" md="8" class="auth-image-background d-none d-md-flex align-center justify-center position-relative">
-                <div class="d-flex auth-img-footer" v-if="!isDarkMode">
-                    <v-img class="img-with-direction" src="img/desktop/background.svg"/>
-                </div>
-                <div class="d-flex auth-img-footer" v-if="isDarkMode">
-                    <v-img class="img-with-direction" src="img/desktop/background-dark.svg"/>
-                </div>
-                <div class="d-flex align-center justify-center w-100 pt-10">
-                    <v-img class="img-with-direction" max-width="320px" src="img/desktop/people2.svg" v-if="!isDarkMode"/>
-                    <v-img class="img-with-direction" max-width="320px" src="img/desktop/people2-dark.svg" v-else-if="isDarkMode"/>
-                </div>
+                <auth-illustration variant="verify" :verified="verified" />
             </v-col>
             <v-col cols="12" md="4" class="auth-card d-flex flex-column">
                 <div class="d-flex align-center justify-center h-100">
@@ -56,9 +47,9 @@
                                     <v-col cols="12">
                                         <router-link class="d-flex align-center justify-center mt-2"
                                                      :class="{ 'disabled': loading || resending }"
-                                                     :to="verified ? '/' : '/login'">
+                                                     :to="verified && isUserLogined() ? '/' : '/login'">
                                             <v-icon class="icon-with-direction" :icon="mdiChevronLeft"/>
-                                            <span class="text-body-medium" v-if="!verified">{{ tt('Back to login page') }}</span>
+                                            <span class="text-body-medium" v-if="!verified || !isUserLogined()">{{ tt('Back to login page') }}</span>
                                             <span class="text-body-medium" v-else-if="verified">{{ tt('Back to home page') }}</span>
                                         </router-link>
                                     </v-col>
@@ -87,24 +78,20 @@
             </v-col>
         </v-row>
 
-        <confirm-dialog ref="confirmDialog"/>
         <snack-bar ref="snackbar" @update:show="onSnackbarShowStateChanged" />
     </div>
 </template>
 
 <script setup lang="ts">
-import ConfirmDialog from '@/components/desktop/ConfirmDialog.vue';
 import SnackBar from '@/components/desktop/SnackBar.vue';
 
-import { ref, computed, useTemplateRef } from 'vue';
+import { ref, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
-import { useTheme } from 'vuetify';
 
 import { useI18n } from '@/locales/helpers.ts';
 
 import { useRootStore } from '@/stores/index.ts';
 
-import { ThemeType } from '@/core/theme.ts';
 import { APPLICATION_LOGO_PATH } from '@/consts/asset.ts';
 
 import { isUserVerifyEmailEnabled } from '@/lib/server_settings.ts';
@@ -115,7 +102,6 @@ import {
     mdiChevronLeft
 } from '@mdi/js';
 
-type ConfirmDialogType = InstanceType<typeof ConfirmDialog>;
 type SnackBarType = InstanceType<typeof SnackBar>;
 
 const props = defineProps<{
@@ -125,7 +111,6 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
-const theme = useTheme();
 
 const { tt, te } = useI18n();
 
@@ -133,7 +118,6 @@ const rootStore = useRootStore();
 
 const version = `${getClientDisplayVersion()}`;
 
-const confirmDialog = useTemplateRef<ConfirmDialogType>('confirmDialog');
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 
 const password = ref<string>('');
@@ -141,8 +125,6 @@ const loading = ref<boolean>(true);
 const resending = ref<boolean>(false);
 const verified = ref<boolean>(false);
 const errorMessage = ref<string>('');
-
-const isDarkMode = computed<boolean>(() => theme.global.name.value === ThemeType.Dark);
 
 function init(): void {
     verified.value = false;
@@ -153,10 +135,7 @@ function init(): void {
         return;
     }
 
-    rootStore.verifyEmail({
-        token: props.token,
-        requestNewToken: !isUserLogined()
-    }).then(() => {
+    rootStore.verifyEmail(props.token).then(() => {
         loading.value = false;
         verified.value = true;
         snackbar.value?.showMessage('Email address is verified');

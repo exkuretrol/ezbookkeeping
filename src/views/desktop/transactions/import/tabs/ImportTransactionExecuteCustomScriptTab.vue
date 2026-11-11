@@ -6,14 +6,13 @@
                        :disabled="disabled || !sandboxLoaded || executingScript" :loading="executingScript"
                        @click="executeCustomScript()">
                     <template #loader>
-                        <v-progress-circular indeterminate size="18" class="me-1"/>
+                        <v-progress-circular indeterminate size="15" width="2" class="loading-icon-before-text" />
                         <span>{{ tt('Execute Custom Script') }}</span>
                     </template>
                     <span>{{ tt('Execute Custom Script') }}</span>
                 </v-btn>
             </div>
-            <v-textarea class="w-100 code-textarea" style="height: 360px" :readonly="disabled"
-                        v-model="customScript"></v-textarea>
+            <import-transaction-script-editor :readonly="disabled" v-model="customScript" />
         </v-col>
         <v-col cols="12" md="6">
             <div class="title-and-toolbar d-flex w-100 mb-1">
@@ -29,9 +28,8 @@
                     </v-menu>
                 </v-btn>
             </div>
-            <div class="w-100 code-container">
-                <v-textarea class="w-100 always-cursor-text" style="height: 360px" :readonly="true"
-                            :color="executionError ? 'error': undefined" :value="displayPreviewResult"></v-textarea>
+            <div class="w-100" style="height: 360px">
+                <code-editor language="json" :readonly="true" :rounded="true" :model-value="displayPreviewResult" />
             </div>
         </v-col>
     </v-row>
@@ -42,8 +40,9 @@
 
 <script setup lang="ts">
 import SnackBar from '@/components/desktop/SnackBar.vue';
+import ImportTransactionScriptEditor from '@/components/desktop/ImportTransactionScriptEditor.vue';
 
-import { ref, computed, useTemplateRef, onMounted, onUnmounted } from 'vue';
+import { ref, computed, useTemplateRef, watch, onMounted, onUnmounted } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
 
@@ -63,7 +62,6 @@ import {
 import {
     getTimezoneOffsetMinutes,
     getBrowserTimezoneName,
-    getCurrentUnixTime,
     parseDateTimeFromKnownDateTimeFormat,
     parseDateTimeFromString
 } from '@/lib/datetime.ts';
@@ -108,7 +106,8 @@ const props = defineProps<{
 const {
     tt,
     formatDateTimeToGregorianDefaultDateTime,
-    formatNumberToLocalizedNumerals
+    formatNumberToLocalizedNumerals,
+    getLocalizedImportTransactionCustomSampleScript
 } = useI18n();
 
 const settingsStore = useSettingsStore();
@@ -185,49 +184,14 @@ const sandboxLoaded = ref<boolean>(false);
 const customScript = ref<string>('');
 const previewResult = ref<ImportTransactionRequestItem[] | undefined>(undefined);
 const executingScript = ref<boolean>(false);
+const autoExecutePending = ref<boolean>(false);
 const executionError = ref<string>('');
 const previewCount = ref<number>(10);
 
 const currentTimezoneName = computed<string>(() => settingsStore.appSettings.timeZone || getBrowserTimezoneName());
 const previewCounts = computed<NameNumeralValue[]>(() => getTablePageOptions(previewResult.value?.length));
 
-const sampleScript = computed<string>(() => `// ${tt('sample.importTransactionCustomScript.headerComment')}
-/**
- * ${tt('sample.importTransactionCustomScript.functionDescription')}
- * @param {array} row - ${tt('sample.importTransactionCustomScript.functionParamRowDescription')}
- * @param {number} index - ${tt('sample.importTransactionCustomScript.functionParamIndexDescription')}
- * @returns {object|null} ${tt('sample.importTransactionCustomScript.functionReturnDescription')}
- */
-function parse(row, index) {
-    if (index < 1) {
-        return null;
-    }
-
-    return {
-        // ${tt('sample.importTransactionCustomScript.fieldTimeDescription')}
-        time: row[0],
-        // ${tt('sample.importTransactionCustomScript.fieldUtcOffsetDescription')}
-        utcOffset: ${currentTimezoneName.value ? 'parseUtcOffset(\'' + currentTimezoneName.value + '\')' : '\'' + getTimezoneOffsetMinutes(getCurrentUnixTime()) + '\''},
-        // ${tt('sample.importTransactionCustomScript.fieldTypeDescription')}
-        type: TransactionType.Expense,
-        // ${tt('sample.importTransactionCustomScript.fieldCategoryNameDescription')}
-        categoryName: row[4],
-        // ${tt('sample.importTransactionCustomScript.fieldSourceAccountNameDescription')}
-        sourceAccountName: row[5],
-        // ${tt('sample.importTransactionCustomScript.fieldDestinationAccountNameDescription')}
-        destinationAccountName: row[8],
-        // ${tt('sample.importTransactionCustomScript.fieldSourceAmountDescription')}
-        sourceAmount: row[7],
-        // ${tt('sample.importTransactionCustomScript.fieldDestinationAmountDescription')}
-        destinationAmount: row[10],
-        // ${tt('sample.importTransactionCustomScript.fieldGeoLocationDescription')}
-        geoLocation: undefined,
-        // ${tt('sample.importTransactionCustomScript.fieldTagNamesDescription')}
-        tagNames: '',
-        // ${tt('sample.importTransactionCustomScript.fieldCommentDescription')}
-        description: row[13]
-    };
-}`);
+const sampleScript = computed<string>(() => getLocalizedImportTransactionCustomSampleScript(currentTimezoneName.value));
 
 const displayPreviewResult = computed<string>(() => {
     if (executingScript.value) {
@@ -237,9 +201,9 @@ const displayPreviewResult = computed<string>(() => {
     } else if (previewResult.value) {
         if (previewCount.value > 0) {
             const rows = previewResult.value.slice(0, previewCount.value);
-            return JSON.stringify(rows, null, 2);
+            return JSON.stringify(rows, null, 4);
         } else {
-            return JSON.stringify(previewResult.value, null, 2);
+            return JSON.stringify(previewResult.value, null, 4);
         }
     } else {
         return tt('No Preview Result');
@@ -308,6 +272,13 @@ function executeCustomScript(): void {
     sandbox.value?.contentWindow?.postMessage(JSON.stringify(sandboxRequest), '*');
 }
 
+function tryAutoExecuteCustomScript(): void {
+    if (sandbox.value && !props.disabled && !executingScript.value && sandboxLoaded.value && autoExecutePending.value) {
+        autoExecutePending.value = false;
+        executeCustomScript();
+    }
+}
+
 function generateResult(): string | undefined {
     if (!previewResult.value) {
         snackbar.value?.showError('Please execute the custom script first');
@@ -322,11 +293,22 @@ function generateResult(): string | undefined {
 }
 
 function reset(): void {
+    autoExecutePending.value = false;
     customScript.value = sampleScript.value;
     previewResult.value = undefined;
     executionError.value = '';
     executingScript.value = false;
     previewCount.value = 10;
+}
+
+function loadScript(script: string, autoExecute: boolean): void {
+    customScript.value = script;
+    previewResult.value = undefined;
+
+    if (autoExecute) {
+        autoExecutePending.value = true;
+        tryAutoExecuteCustomScript();
+    }
 }
 
 function loadScriptFile(): void {
@@ -436,6 +418,14 @@ function onMessage(event: MessageEvent<SandboxResponse>): void {
     reloadSandbox();
 }
 
+watch(sandboxLoaded, () => {
+    tryAutoExecuteCustomScript();
+});
+
+watch(() => props.disabled, () => {
+    tryAutoExecuteCustomScript();
+});
+
 onMounted(() => {
     customScript.value = sampleScript.value;
     reloadSandbox();
@@ -449,6 +439,7 @@ onUnmounted(() => {
 defineExpose({
     menus,
     generateResult,
-    reset
+    reset,
+    loadScript
 });
 </script>

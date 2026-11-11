@@ -19,18 +19,25 @@ type ServiceUsingDB struct {
 	container *datastore.DataStoreContainer
 }
 
+// NewServiceUsingDB returns a new service using the given data storage container
+func NewServiceUsingDB(container *datastore.DataStoreContainer) ServiceUsingDB {
+	return ServiceUsingDB{
+		container: container,
+	}
+}
+
 // UserDB returns the datastore which contains user
-func (s *ServiceUsingDB) UserDB() *datastore.Database {
+func (s *ServiceUsingDB) UserDB() datastore.Database {
 	return s.container.UserStore.Choose(0)
 }
 
 // TokenDB returns the datastore which contains user token
-func (s *ServiceUsingDB) TokenDB(uid int64) *datastore.Database {
+func (s *ServiceUsingDB) TokenDB(uid int64) datastore.Database {
 	return s.container.TokenStore.Choose(uid)
 }
 
 // TokenDBByIndex returns the datastore which contains user token by index
-func (s *ServiceUsingDB) TokenDBByIndex(index int) *datastore.Database {
+func (s *ServiceUsingDB) TokenDBByIndex(index int) datastore.Database {
 	return s.container.TokenStore.Get(index)
 }
 
@@ -40,12 +47,12 @@ func (s *ServiceUsingDB) TokenDBCount() int {
 }
 
 // UserDataDB returns the datastore which contains user data
-func (s *ServiceUsingDB) UserDataDB(uid int64) *datastore.Database {
+func (s *ServiceUsingDB) UserDataDB(uid int64) datastore.Database {
 	return s.container.UserDataStore.Choose(uid)
 }
 
 // UserDataDBByIndex returns the datastore which contains user data by index
-func (s *ServiceUsingDB) UserDataDBByIndex(index int) *datastore.Database {
+func (s *ServiceUsingDB) UserDataDBByIndex(index int) datastore.Database {
 	return s.container.UserDataStore.Get(index)
 }
 
@@ -57,6 +64,13 @@ func (s *ServiceUsingDB) UserDataDBCount() int {
 // ServiceUsingConfig represents a service that need to use config
 type ServiceUsingConfig struct {
 	container *settings.ConfigContainer
+}
+
+// NewServiceUsingConfig returns a new service using the given config container
+func NewServiceUsingConfig(container *settings.ConfigContainer) ServiceUsingConfig {
+	return ServiceUsingConfig{
+		container: container,
+	}
 }
 
 // CurrentConfig returns the current config
@@ -100,7 +114,7 @@ func (s *ServiceUsingStorage) ExistsAvatar(ctx core.Context, uid int64, fileExte
 }
 
 // ReadAvatar returns the user avatar from the current avatar object storage
-func (s *ServiceUsingStorage) ReadAvatar(ctx core.Context, uid int64, fileExtension string) (storage.ObjectInStorage, error) {
+func (s *ServiceUsingStorage) ReadAvatar(ctx core.Context, uid int64, fileExtension string) (storage.ObjectInStorage, bool, error) {
 	return s.container.ReadAvatar(ctx, s.getUserAvatarPath(uid, fileExtension))
 }
 
@@ -120,7 +134,7 @@ func (s *ServiceUsingStorage) ExistsUserCustomIcon(ctx core.Context, uid int64, 
 }
 
 // ReadUserCustomIcon returns the user custom icon from the current user custom icon object storage
-func (s *ServiceUsingStorage) ReadUserCustomIcon(ctx core.Context, uid int64, iconId int64) (storage.ObjectInStorage, error) {
+func (s *ServiceUsingStorage) ReadUserCustomIcon(ctx core.Context, uid int64, iconId int64) (storage.ObjectInStorage, bool, error) {
 	return s.container.ReadUserCustomIcon(ctx, s.getUserCustomIconPath(uid, iconId))
 }
 
@@ -140,7 +154,7 @@ func (s *ServiceUsingStorage) ExistsTransactionPicture(ctx core.Context, uid int
 }
 
 // ReadTransactionPicture returns the transaction picture from the current transaction picture object storage
-func (s *ServiceUsingStorage) ReadTransactionPicture(ctx core.Context, uid int64, pictureId int64, fileExtension string) (storage.ObjectInStorage, error) {
+func (s *ServiceUsingStorage) ReadTransactionPicture(ctx core.Context, uid int64, pictureId int64, fileExtension string) (storage.ObjectInStorage, bool, error) {
 	return s.container.ReadTransactionPicture(ctx, s.getTransactionPicturePath(uid, pictureId, fileExtension))
 }
 

@@ -30,12 +30,13 @@
                          :style="`grid-template-columns: repeat(${itemPerRow}, minmax(0, 1fr));`"
                          :key="idx" v-for="(row, idx) in allColorRows">
                         <div class="text-center" :key="colorInfo.color" v-for="colorInfo in row">
-                            <div class="cursor-pointer" @click="color = colorInfo.color">
+                            <div class="cursor-pointer" :aria-label="`#${colorInfo.color}`" @click="color = colorInfo.color">
                                 <v-icon class="ma-2" size="28"
                                         :icon="mdiSquareRounded" :color="getDisplayColor(colorInfo.color)"
                                         v-if="!modelValue || modelValue !== colorInfo.color" />
                                 <v-badge class="right-bottom-icon" color="primary"
                                          offset-x="8" offset-y="8"
+                                         :aria-label="tt('Selected')"
                                          :location="`bottom ${textDirection === TextDirection.LTR ? 'right' : 'left'}`"
                                          :icon="mdiCheck"
                                          v-if="modelValue && modelValue === colorInfo.color">

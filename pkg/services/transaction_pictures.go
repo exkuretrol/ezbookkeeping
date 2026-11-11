@@ -3,10 +3,7 @@ package services
 import (
 	"io"
 	"mime/multipart"
-	"os"
 	"time"
-
-	"xorm.io/xorm"
 
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/datastore"
@@ -176,14 +173,14 @@ func (s *TransactionPictureService) GetPictureByPictureId(c core.Context, uid in
 		return nil, errs.ErrTransactionPictureExtensionInvalid
 	}
 
-	pictureFile, err := s.ReadTransactionPicture(c, pictureInfo.Uid, pictureInfo.PictureId, pictureInfo.PictureExtension)
-
-	if os.IsNotExist(err) {
-		return nil, errs.ErrTransactionPictureNoExists
-	}
+	pictureFile, exists, err := s.ReadTransactionPicture(c, pictureInfo.Uid, pictureInfo.PictureId, pictureInfo.PictureExtension)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if !exists {
+		return nil, errs.ErrTransactionPictureNoExists
 	}
 
 	defer pictureFile.Close()
@@ -222,7 +219,7 @@ func (s *TransactionPictureService) UploadPicture(c core.Context, pictureInfo *m
 		return err
 	}
 
-	return s.UserDataDB(pictureInfo.Uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.UserDataDB(pictureInfo.Uid).DoTransaction(c, func(sess datastore.DatabaseSession) error {
 		_, err := sess.Insert(pictureInfo)
 		return err
 	})
@@ -245,7 +242,7 @@ func (s *TransactionPictureService) RemoveUnusedTransactionPicture(c core.Contex
 		DeletedUnixTime: now,
 	}
 
-	return s.UserDB().DoTransaction(c, func(sess *xorm.Session) error {
+	return s.UserDB().DoTransaction(c, func(sess datastore.DatabaseSession) error {
 		deletedRows, err := sess.ID(pictureId).Cols("deleted", "deleted_unix_time").Where("uid=? AND deleted=? AND transaction_id=?", uid, false, models.TransactionPictureNewPictureTransactionId).Update(updateModel)
 
 		if err != nil {

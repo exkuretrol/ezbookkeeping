@@ -10,7 +10,7 @@
                 })" v-model="queryPageType" />
             </div>
             <v-divider class="my-2" />
-            <div class="mt-2">
+            <div class="my-2">
                 <span class="mx-3 text-body-medium">{{ tt('Transaction Type') }}</span>
                 <v-select
                     item-title="displayName"
@@ -57,8 +57,12 @@
                                 <v-btn class="ms-3" color="default" variant="outlined"
                                        :disabled="loading || !canAddTransaction" @click="add()">
                                     {{ tt('Add') }}
-                                    <v-menu activator="parent" max-height="500" :open-on-hover="true" v-if="isTransactionFromAITextRecognitionEnabled() || isTransactionFromAIImageRecognitionEnabled() || (allTransactionTemplates && allTransactionTemplates.length)">
+                                    <v-menu activator="parent" max-height="500" :open-on-hover="true">
                                         <v-list>
+                                            <v-list-item key="AddMultipleTransactions"
+                                                         :title="tt('Add Multiple Transactions')"
+                                                         :prepend-icon="mdiTablePlus"
+                                                         @click="addMultiple"></v-list-item>
                                             <v-list-item key="AIClipboardTextRecognition"
                                                          :title="tt('AI Clipboard Text Recognition')"
                                                          :prepend-icon="mdiMagicStaff"
@@ -69,6 +73,7 @@
                                                          :prepend-icon="mdiMagicStaff"
                                                          v-if="isTransactionFromAIImageRecognitionEnabled()"
                                                          @click="addByRecognizingImage"></v-list-item>
+                                            <v-divider class="my-1" v-if="allTransactionTemplates && allTransactionTemplates.length > 0" />
                                             <v-list-item :key="template.id"
                                                          :title="template.name"
                                                          :prepend-icon="mdiTextBoxOutline"
@@ -110,8 +115,8 @@
                                         </v-list>
                                     </v-menu>
                                 </v-btn>
-                                <v-btn density="compact" color="default" variant="text"
-                                       class="ms-2" :icon="true" :loading="loading" @click="reload(true, false)">
+                                <v-btn density="compact" color="default" variant="text" class="ms-2"
+                                       :aria-label="tt('Refresh')" :icon="true" :loading="loading" @click="reload(true, false)">
                                     <template #loader>
                                         <v-progress-circular indeterminate size="20"/>
                                     </template>
@@ -120,14 +125,26 @@
                                 </v-btn>
                                 <v-spacer/>
                                 <div class="transaction-keyword-filter ms-2">
-                                    <v-text-field density="compact" :disabled="loading"
+                                    <v-text-field autocomplete="off" density="compact" :disabled="loading"
                                                   :prepend-inner-icon="mdiMagnify"
-                                                  :append-inner-icon="searchKeyword !== query.keyword ? mdiCheck : undefined"
                                                   :placeholder="tt('Search transaction description')"
                                                   v-model="searchKeyword"
-                                                  @click:append-inner="changeKeywordFilter(searchKeyword)"
                                                   @keyup.enter="changeKeywordFilter(searchKeyword)"
-                                    />
+                                    >
+                                        <template #append-inner>
+                                            <v-tooltip :text="tt('Search')" v-if="searchKeyword !== query.keyword">
+                                                <template v-slot:activator="{ props }">
+                                                    <v-icon :icon="mdiCheck"
+                                                            :aria-label="tt('Search')"
+                                                            :disabled="loading"
+                                                            @click="changeKeywordFilter(searchKeyword)"
+                                                            @keydown.enter.stop.prevent="changeKeywordFilter(searchKeyword)"
+                                                            @keydown.space.stop.prevent="changeKeywordFilter(searchKeyword)"
+                                                            v-bind="props" />
+                                                </template>
+                                            </v-tooltip>
+                                        </template>
+                                    </v-text-field>
                                 </div>
                             </div>
                         </template>
@@ -143,21 +160,21 @@
                                       v-else-if="query.minTime || query.maxTime">
                                     <v-btn class="button-icon-with-direction" size="small"
                                            density="compact" color="default" variant="outlined"
-                                           :icon="true" :disabled="loading"
+                                           :aria-label="tt('Previous Period')" :disabled="loading" :icon="true"
                                            @click="shiftDateRange(query.minTime, query.maxTime, -1)">
                                         <v-icon :icon="mdiArrowLeft" size="14" />
                                     </v-btn>
-                                    <span class="text-body-medium mx-1">{{ `${queryMinTime} - ${queryMaxTime}` }}</span>
+                                    <span class="text-body-medium mx-1">{{ formatRange(queryMinTime, queryMaxTime) }}</span>
                                     <v-btn class="button-icon-with-direction" size="small"
                                            density="compact" color="default" variant="outlined"
-                                           :icon="true" :disabled="loading"
+                                           :aria-label="tt('Next Period')" :disabled="loading" :icon="true"
                                            @click="shiftDateRange(query.minTime, query.maxTime, 1)">
                                         <v-icon :icon="mdiArrowRight" size="14" />
                                     </v-btn>
                                 </div>
                                 <v-spacer/>
                                 <div class="skeleton-no-margin d-flex align-center" v-if="showTotalAmountInTransactionListPage && currentMonthTotalAmount">
-                                    <span class="ms-2 text-body-large">{{ queryAllFilterAccountIdsCount ? tt('Total Inflows') : tt('Total Income') }}</span>
+                                    <span class="ms-2 text-body-large">{{ totalAmountTypeInTransactionListPage === TransactionAmountType.IncomeAndExpense ? tt('Total Income') : tt('Total Inflows') }}</span>
                                     <span class="text-income ms-2" v-if="loading">
                                         <v-skeleton-loader type="text" style="width: 60px" :loading="true"></v-skeleton-loader>
                                     </span>
@@ -167,7 +184,7 @@
                                             <span>{{ currentMonthTotalAmount.incomeInDefaultCurrency }}</span>
                                         </v-tooltip>
                                     </span>
-                                    <span class="text-body-large ms-3">{{ queryAllFilterAccountIdsCount ? tt('Total Outflows') : tt('Total Expense') }}</span>
+                                    <span class="text-body-large ms-3">{{ totalAmountTypeInTransactionListPage === TransactionAmountType.IncomeAndExpense ? tt('Total Expense') : tt('Total Outflows') }}</span>
                                     <span class="text-expense ms-2" v-if="loading">
                                         <v-skeleton-loader type="text" style="width: 60px" :loading="true"></v-skeleton-loader>
                                     </span>
@@ -182,12 +199,14 @@
                         </v-card-text>
 
                         <v-card-text class="transaction-calendar-container pt-0" v-if="pageType === TransactionListPageType.Calendar.type">
-                            <transaction-calendar day-has-transaction-class="font-weight-bold"
+                            <transaction-calendar show-amount show-income-amount show-expense-amount show-alternate-date
+                                                  dates-have-any-transaction-clickable
+                                                  day-has-transaction-class="font-weight-bold"
                                                   :readonly="loading" :is-dark-mode="isDarkMode"
                                                   :default-currency="selectedAccountDefaultCurrency"
                                                   :min-date="transactionCalendarMinDate"
                                                   :max-date="transactionCalendarMaxDate"
-                                                  :dailyTotalAmounts="currentMonthTransactionData?.dailyTotalAmounts"
+                                                  :daily-total-amounts="getDailyTotalAmounts(currentMonthTransactionData)"
                                                   v-model="currentCalendarDate"></transaction-calendar>
                         </v-card-text>
 
@@ -366,7 +385,7 @@
                                                                           :currency="selectedAccountDefaultCurrency"
                                                                           v-model="currentAmountFilterValue1"
                                                                           v-if="currentAmountFilterType === filterType.type"/>
-                                                            <span class="ms-2 me-2" v-if="currentAmountFilterType === filterType.type && filterType.paramCount === 2">~</span>
+                                                            <span class="ms-2 me-2" v-if="currentAmountFilterType === filterType.type && filterType.paramCount === 2">{{ tt('format.misc.rangeSeparator') }}</span>
                                                             <amount-input class="transaction-amount-filter-value" density="compact"
                                                                           :currency="selectedAccountDefaultCurrency"
                                                                           v-model="currentAmountFilterValue2"
@@ -554,7 +573,7 @@
                                     <td class="transaction-table-column-time">
                                         <div class="d-flex flex-column">
                                             <span>{{ getDisplayTime(transaction) }}</span>
-                                            <span class="text-body-small" v-if="!isSameAsDefaultTimezoneOffsetMinutes(transaction)">{{ getDisplayTimezone(transaction) }}</span>
+                                            <span class="text-body-small text-medium-emphasis" v-if="!isSameAsDefaultTimezoneOffsetMinutes(transaction)">{{ getDisplayTimezone(transaction) }}</span>
                                             <v-tooltip activator="parent" v-if="!isSameAsDefaultTimezoneOffsetMinutes(transaction)">{{ getDisplayTimeInDefaultTimezone(transaction) }}</v-tooltip>
                                         </div>
                                     </td>
@@ -565,13 +584,13 @@
                                                       :color="transaction.category.color"
                                                       v-if="transaction.category && transaction.category.color"></ItemIcon>
                                             <v-icon size="24" :icon="mdiPencilBoxOutline" v-else-if="!transaction.category || !transaction.category.color" />
-                                            <span class="ms-2" v-if="transaction.type === TransactionType.ModifyBalance">
+                                            <span class="ms-1" v-if="transaction.type === TransactionType.ModifyBalance">
                                                 {{ tt('Modify Balance') }}
                                             </span>
-                                            <span class="ms-2" v-else-if="transaction.type !== TransactionType.ModifyBalance && transaction.category">
+                                            <span class="ms-1" v-else-if="transaction.type !== TransactionType.ModifyBalance && transaction.category">
                                                 {{ transaction.category.name }}
                                             </span>
-                                            <span class="ms-2" v-else-if="transaction.type !== TransactionType.ModifyBalance && !transaction.category">
+                                            <span class="ms-1" v-else-if="transaction.type !== TransactionType.ModifyBalance && !transaction.category">
                                                 {{ getTransactionTypeName(transaction.type, 'Transaction') }}
                                             </span>
                                         </div>
@@ -601,6 +620,10 @@
                                                 v-if="!transaction.tagIds || !transaction.tagIds.length"/>
                                     </td>
                                     <td class="transaction-table-column-description text-truncate">
+                                        <v-icon class="transaction-picture-indicator" size="18" :icon="mdiImageOutline"
+                                                :aria-label="tt('Transaction Pictures')" role="img"
+                                                v-if="showPictureIndicatorInTransactionListPage && transaction.pictures?.length">
+                                        </v-icon>
                                         {{ transaction.comment }}
                                     </td>
                                 </tr>
@@ -678,8 +701,9 @@
                             @error="onShowDateRangeError" />
 
     <edit-dialog ref="editDialog" :type="TransactionEditPageType.Transaction" />
+    <batch-add-dialog ref="batchAddDialog" />
     <a-i-image-recognition-dialog ref="aiImageRecognitionDialog" />
-    <import-dialog ref="importDialog" :persistent="true" />
+    <import-dialog ref="importDialog" />
 
     <account-filter-settings-dialog type="transactionListCurrent"
                                     v-model:show="showFilterAccountDialog"
@@ -694,16 +718,15 @@
                                             v-model:show="showFilterTagDialog"
                                             @settings:change="changeMultipleTagsFilter" />
 
-    <confirm-dialog ref="confirmDialog"/>
     <snack-bar ref="snackbar" />
 </template>
 
 <script setup lang="ts">
 import { VMenu } from 'vuetify/components/VMenu';
 import PaginationButtons from '@/components/desktop/PaginationButtons.vue';
-import ConfirmDialog from '@/components/desktop/ConfirmDialog.vue';
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import EditDialog from './list/dialogs/EditDialog.vue';
+import BatchAddDialog from './list/dialogs/BatchAddDialog.vue';
 import AIImageRecognitionDialog from './list/dialogs/AIImageRecognitionDialog.vue';
 import ImportDialog from './import/ImportDialog.vue';
 import AccountFilterSettingsDialog from '@/views/desktop/common/dialogs/AccountFilterSettingsDialog.vue';
@@ -716,7 +739,7 @@ import { useRouter, onBeforeRouteUpdate } from 'vue-router';
 import { useTheme } from 'vuetify';
 
 import { useI18n } from '@/locales/helpers.ts';
-import { TransactionListPageType, useTransactionListPageBase } from '@/views/base/transactions/TransactionListPageBase.ts';
+import { type TransactionListDisplayTotalAmount, TransactionListPageType, useTransactionListPageBase } from '@/views/base/transactions/TransactionListPageBase.ts';
 
 import { useSettingsStore } from '@/stores/setting.ts';
 import { useUserStore } from '@/stores/user.ts';
@@ -741,7 +764,7 @@ import {
 } from '@/core/datetime.ts';
 import { AmountFilterType } from '@/core/numeral.ts';
 import { ThemeType } from '@/core/theme.ts';
-import { TransactionType } from '@/core/transaction.ts';
+import { TransactionType, TransactionAmountType } from '@/core/transaction.ts';
 import { TemplateType }  from '@/core/template.ts';
 
 import { DEFAULT_PAGE_COUNTS } from '@/consts/page.ts';
@@ -806,7 +829,9 @@ import {
     mdiArrowLeft,
     mdiArrowRight,
     mdiPound,
+    mdiImageOutline,
     mdiMagicStaff,
+    mdiTablePlus,
     mdiTextBoxOutline,
     mdiTextBoxEditOutline
 } from '@mdi/js';
@@ -827,26 +852,18 @@ interface TransactionListProps {
 
 const props = defineProps<TransactionListProps>();
 
-type ConfirmDialogType = InstanceType<typeof ConfirmDialog>;
 type SnackBarType = InstanceType<typeof SnackBar>;
 type EditDialogType = InstanceType<typeof EditDialog>;
+type BatchAddDialogType = InstanceType<typeof BatchAddDialog>;
 type AIImageRecognitionDialogType = InstanceType<typeof AIImageRecognitionDialog>;
 type ImportDialogType = InstanceType<typeof ImportDialog>;
-
-interface TransactionListDisplayTotalAmount {
-    incomeIsZero: boolean;
-    expenseIsZero: boolean;
-    income: string;
-    expense: string;
-    incomeInDefaultCurrency: string;
-    expenseInDefaultCurrency: string;
-}
 
 const router = useRouter();
 const theme = useTheme();
 
 const {
     tt,
+    formatRange,
     getAllRecentMonthDateRanges,
     getWeekdayLongName,
     getTablePageOptions
@@ -863,7 +880,9 @@ const {
     userDefaultCurrency,
     selectedAccountDefaultCurrency,
     showTotalAmountInTransactionListPage,
+    totalAmountTypeInTransactionListPage,
     showTagInTransactionListPage,
+    showPictureIndicatorInTransactionListPage,
     allDateRanges,
     allAccounts,
     allAccountsMap,
@@ -897,13 +916,14 @@ const {
     hasVisibleTagsInTagGroup,
     isSameAsDefaultTimezoneOffsetMinutes,
     canAddTransaction,
+    getDailyTotalAmounts,
+    getDisplayMonthTotalAmount,
     getDisplayTime,
     getDisplayLongDate,
     getDisplayTimezone,
     getDisplayTimeInDefaultTimezone,
     getDisplayAmount,
     getDisplayAmountCurrency,
-    getDisplayMonthTotalAmount,
     getTransactionTypeName,
     getTransactionPictureUrl
 } = useTransactionListPageBase();
@@ -923,9 +943,9 @@ const amountFilterMenu = useTemplateRef<VMenu>('amountFilterMenu');
 const accountFilterMenu = useTemplateRef<VMenu>('accountFilterMenu');
 const tagFilterMenu = useTemplateRef<VMenu>('tagFilterMenu');
 
-const confirmDialog = useTemplateRef<ConfirmDialogType>('confirmDialog');
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const editDialog = useTemplateRef<EditDialogType>('editDialog');
+const batchAddDialog = useTemplateRef<BatchAddDialogType>('batchAddDialog');
 const aiImageRecognitionDialog = useTemplateRef<AIImageRecognitionDialogType>('aiImageRecognitionDialog');
 const importDialog = useTemplateRef<ImportDialogType>('importDialog');
 
@@ -1127,22 +1147,7 @@ const skeletonData = computed<number[]>(() => {
 
 const currentMonthTotalAmount = computed<TransactionListDisplayTotalAmount | null>(() => {
     if (queryMonthlyData.value) {
-        const transactionData = currentMonthTransactionData.value;
-
-        if (!transactionData) {
-            return null;
-        }
-
-        const displayMonthlyTotalAmount: TransactionListDisplayTotalAmount = {
-            incomeIsZero: transactionData.totalAmount.income.isZero(),
-            expenseIsZero: transactionData.totalAmount.expense.isZero(),
-            income: getDisplayMonthTotalAmount(transactionData.totalAmount.income, selectedAccountDefaultCurrency.value, '', transactionData.totalAmount.incompleteIncome),
-            expense: getDisplayMonthTotalAmount(transactionData.totalAmount.expense, selectedAccountDefaultCurrency.value, '', transactionData.totalAmount.incompleteExpense),
-            incomeInDefaultCurrency: getDisplayMonthTotalAmount(transactionData.totalAmount.income, selectedAccountDefaultCurrency.value, '', transactionData.totalAmount.incompleteIncome, true),
-            expenseInDefaultCurrency: getDisplayMonthTotalAmount(transactionData.totalAmount.expense, selectedAccountDefaultCurrency.value, '', transactionData.totalAmount.incompleteExpense, true)
-        };
-
-        return displayMonthlyTotalAmount;
+        return getDisplayMonthTotalAmount(currentMonthTransactionData.value, '');
     } else {
         return null;
     }
@@ -1276,7 +1281,7 @@ function reload(force: boolean, init: boolean): void {
                 year: currentYear,
                 month: currentMonth,
                 mustHavePictures: isGalleryMode,
-                withPictures: isGalleryMode,
+                withPictures: isGalleryMode || showPictureIndicatorInTransactionListPage.value,
                 autoExpand: true,
                 defaultCurrency: selectedAccountDefaultCurrency.value
             });
@@ -1287,7 +1292,7 @@ function reload(force: boolean, init: boolean): void {
                 page: page,
                 mustHavePictures: isGalleryMode,
                 withCount: page <= 1,
-                withPictures: isGalleryMode,
+                withPictures: isGalleryMode || showPictureIndicatorInTransactionListPage.value,
                 autoExpand: true,
                 defaultCurrency: selectedAccountDefaultCurrency.value
             });
@@ -1660,6 +1665,35 @@ function add(template?: TransactionTemplate, autoRecognizeClipboardText?: string
     });
 }
 
+function addMultiple(): void {
+    const currentUnixTime = getCurrentUnixTime();
+    let newTransactionTime: number | undefined = undefined;
+
+    if (query.value.maxTime && query.value.minTime) {
+        if (query.value.maxTime < currentUnixTime) {
+            newTransactionTime = query.value.maxTime;
+        } else if (currentUnixTime < query.value.minTime) {
+            newTransactionTime = query.value.minTime;
+        }
+    }
+
+    batchAddDialog.value?.open({
+        time: newTransactionTime,
+        type: query.value.type,
+        categoryId: queryAllFilterCategoryIdsCount.value === 1 ? query.value.categoryIds : '',
+        accountId: queryAllFilterAccountIdsCount.value === 1 ? query.value.accountIds : '',
+        tagIds: objectFieldWithValueToArrayItem(queryAllFilterTagIds.value, true).join(',') || ''
+    }).then(changed => {
+        if (changed) {
+            reload(false, false);
+        }
+    }).catch(error => {
+        if (error && !error.processed) {
+            snackbar.value?.showError(error);
+        }
+    });
+}
+
 function addByRecognizingClipboardText(): void {
     if (navigator.clipboard && isFunction(navigator.clipboard.readText)) {
         navigator.clipboard.readText().then(text => {
@@ -1945,14 +1979,19 @@ init(props);
             text-overflow: ellipsis;
         }
     }
+
+    .transaction-table-column-description {
+        > .transaction-picture-indicator {
+            vertical-align: text-bottom;
+        }
+    }
 }
 
 .transaction-time-menu .item-icon,
 .transaction-category-menu .item-icon,
 .transaction-amount-menu .item-icon,
 .transaction-account-menu .item-icon,
-.transaction-tag-menu .item-icon,
-.transaction-table .item-icon {
+.transaction-tag-menu .item-icon {
     padding-bottom: 3px;
 }
 
@@ -1970,43 +2009,6 @@ init(props);
 .transaction-account-menu .item-in-multiple-selection span,
 .transaction-tag-menu .item-in-multiple-selection span {
     font-weight: bold;
-}
-
-.transaction-calendar-container .dp--main {
-    &.transaction-calendar-with-alternate-date .dp--calendar .dp--calendar-row {
-        --dp-cell-size: 90px;
-    }
-
-    .dp--menu {
-        --dp-border-radius: 6px;
-        --dp-menu-border-color: rgba(var(--v-border-color), var(--v-border-opacity));
-    }
-
-    .dp--calendar {
-        --dp-border-color: rgba(var(--v-border-color), var(--v-border-opacity));
-
-        .dp--calendar-header {
-            --dp-cell-size: 32px;
-        }
-
-        .dp--calendar-row {
-            --dp-cell-size: 76px;
-            --dp-primary-color: rgba(var(--v-theme-primary), var(--v-activated-opacity));
-            --dp-primary-text-color: rgb(var(--v-theme-primary));
-
-            > .dp--calendar-item {
-                overflow: hidden;
-
-                .transaction-calendar-daily-amounts > span.transaction-calendar-alternate-date {
-                    font-size: 0.9rem;
-                }
-
-                .transaction-calendar-daily-amounts > span.transaction-calendar-daily-amount {
-                    font-size: 0.95rem;
-                }
-            }
-        }
-    }
 }
 
 .transaction-gallery-container {

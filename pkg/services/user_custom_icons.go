@@ -3,10 +3,7 @@ package services
 import (
 	"io"
 	"mime/multipart"
-	"os"
 	"time"
-
-	"xorm.io/xorm"
 
 	"github.com/mayswind/ezbookkeeping/pkg/core"
 	"github.com/mayswind/ezbookkeeping/pkg/datastore"
@@ -103,14 +100,14 @@ func (s *UserCustomIconService) GetCustomIconByIconId(c core.Context, uid int64,
 		return nil, errs.ErrUserCustomIconNotFound
 	}
 
-	customIconFile, err := s.ReadUserCustomIcon(c, uid, iconId)
-
-	if os.IsNotExist(err) {
-		return nil, errs.ErrUserCustomIconeNotExists
-	}
+	customIconFile, exists, err := s.ReadUserCustomIcon(c, uid, iconId)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if !exists {
+		return nil, errs.ErrUserCustomIconeNotExists
 	}
 
 	defer customIconFile.Close()
@@ -168,7 +165,7 @@ func (s *UserCustomIconService) UploadCustomIcon(c core.Context, customIcon *mod
 		return err
 	}
 
-	return s.UserDataDB(customIcon.Uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.UserDataDB(customIcon.Uid).DoTransaction(c, func(sess datastore.DatabaseSession) error {
 		_, err := sess.Insert(customIcon)
 		return err
 	})
@@ -184,7 +181,7 @@ func (s *UserCustomIconService) ModifyCustomIconDisplayOrders(c core.Context, ui
 		customIcons[i].UpdatedUnixTime = time.Now().Unix()
 	}
 
-	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.UserDataDB(uid).DoTransaction(c, func(sess datastore.DatabaseSession) error {
 		for i := 0; i < len(customIcons); i++ {
 			customIcon := customIcons[i]
 			updatedRows, err := sess.ID(customIcon.IconId).Cols("display_order", "updated_unix_time").Where("uid=? AND deleted=?", uid, false).Update(customIcon)
@@ -213,7 +210,7 @@ func (s *UserCustomIconService) DeleteCustomIcon(c core.Context, uid int64, icon
 		DeletedUnixTime: now,
 	}
 
-	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.UserDataDB(uid).DoTransaction(c, func(sess datastore.DatabaseSession) error {
 		accountUsed, err := sess.Where("uid=? AND deleted=? AND icon_type=? AND icon=?", uid, false, core.ICON_TYPE_USER_CUSTOM, iconId).Exist(&models.Account{})
 
 		if err != nil {
@@ -259,7 +256,7 @@ func (s *UserCustomIconService) DeleteAllCustomIcons(c core.Context, uid int64) 
 		DeletedUnixTime: now,
 	}
 
-	return s.UserDataDB(uid).DoTransaction(c, func(sess *xorm.Session) error {
+	return s.UserDataDB(uid).DoTransaction(c, func(sess datastore.DatabaseSession) error {
 		_, err := sess.Cols("deleted", "deleted_unix_time").Where("uid=? AND deleted=?", uid, false).Update(updateModel)
 		return err
 	})
